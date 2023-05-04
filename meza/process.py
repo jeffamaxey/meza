@@ -428,8 +428,7 @@ def fillempty(records, value=None, method=None, limit=None, fields=None):
             yield prev_row
 
     if method == "back":
-        for row in reversed(result):
-            yield row
+        yield from reversed(result)
 
 
 def merge(records, **kwargs):
@@ -593,12 +592,11 @@ def group(records, keyfunc, tupled=True, aggregator=list, **kwargs):
     sorted_records = sorted(records, key=keyfunc)
     grouped = it.groupby(sorted_records, keyfunc)
 
-    if tupled:
-        result = ((key, aggregator(group, **kwargs)) for key, group in grouped)
-    else:
-        result = (aggregator(group, **kwargs) for key, group in grouped)
-
-    return result
+    return (
+        ((key, aggregator(group, **kwargs)) for key, group in grouped)
+        if tupled
+        else (aggregator(group, **kwargs) for key, group in grouped)
+    )
 
 
 def prepend(records, row):
@@ -941,18 +939,16 @@ def get_suffix(cpos, pos, k=None, count=None, chunksize=None):
 
     if subchunks and k is None:
         args = (cpos + 1, pos + 1)
-        suffix = "{0:02d}_{1:03d}".format(*args)
+        return "{0:02d}_{1:03d}".format(*args)
     elif subchunks:
         args = (k, cpos + 1, pos + 1)
-        suffix = "{0}_{1:02d}_{2:03d}".format(*args)
+        return "{0}_{1:02d}_{2:03d}".format(*args)
     elif chunksize and k is None:
-        suffix = "{0:03d}".format(cpos + 1)
+        return "{0:03d}".format(cpos + 1)
     elif chunksize:
-        suffix = "{0}_{1:03d}".format(k, cpos + 1)
+        return "{0}_{1:03d}".format(k, cpos + 1)
     else:
-        suffix = "" if k is None else k
-
-    return suffix
+        return "" if k is None else k
 
 
 def split(records, key=None, count=None, chunksize=None):

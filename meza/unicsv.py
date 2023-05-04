@@ -34,15 +34,13 @@ def encode_all(f=None, **kwargs):
     """
     names = kwargs.pop("fieldnames", None)
 
-    res = {
+    return {
         "f": f,
         "fieldnames": names,
         "drkwargs": use_keys_from(kwargs, READER_KEYS),
         "dwkwargs": use_keys_from(kwargs, WRITER_KEYS),
         "fmtparams": use_keys_from(kwargs, FMTKEYS),
     }
-
-    return res
 
 
 class UnicodeWriter(object):

@@ -155,7 +155,7 @@ class Objectify(object):
             >>> kw.key_4 == kw.get('key_4') == kw['key_4'] == 5
             True
         """
-        defaults.update(kwargs)
+        defaults |= kwargs
         self.data = defaults
         self.func = func
         self.keys = self.data.keys
@@ -232,19 +232,17 @@ class Andand(object):
 class CustomEncoder(JSONEncoder):
     def default(self, obj):
         if hasattr(obj, "real"):
-            encoded = float(obj)
+            return float(obj)
         elif hasattr(obj, "to_dict"):
-            encoded = obj.to_dict()
-        elif set(["quantize", "year", "hour"]).intersection(dir(obj)):
-            encoded = str(obj)
+            return obj.to_dict()
+        elif {"quantize", "year", "hour"}.intersection(dir(obj)):
+            return str(obj)
         elif hasattr(obj, "union"):
-            encoded = tuple(obj)
-        elif set(["next", "append"]).intersection(dir(obj)):
-            encoded = list(obj)
+            return tuple(obj)
+        elif {"next", "append"}.intersection(dir(obj)):
+            return list(obj)
         else:
-            encoded = super(CustomEncoder, self).default(obj)
-
-        return encoded
+            return super(CustomEncoder, self).default(obj)
 
 
 class SleepyDict(dict):
@@ -488,7 +486,11 @@ def is_numeric(content, thousand_sep=",", decimal_sep=".", **kwargs):
         zero_point = s.startswith("0.")
         passed = bool(floated) or zero_point
 
-        if s.startswith("0") and not (kwargs.get("strip_zeros") or zero_point):
+        if (
+            s.startswith("0")
+            and not kwargs.get("strip_zeros")
+            and not zero_point
+        ):
             try:
                 passed = int(stripped) == 0
             except ValueError:
@@ -716,12 +718,10 @@ def get_values(narray):
     try:
         yield narray.tounicode()
     except ValueError:
-        for y in narray.tolist():
-            yield y
+        yield from narray.tolist()
     except AttributeError:
         for n in narray:
-            for x in get_values(n):
-                yield x
+            yield from get_values(n)
 
 
 def xmlize(content):
@@ -783,7 +783,7 @@ def afterish(content, separator=","):
     elif numeric:
         after = -1
     else:
-        raise ValueError("Not able to coerce {} to a number".format(content))
+        raise ValueError(f"Not able to coerce {content} to a number")
 
     return after
 
@@ -825,7 +825,7 @@ def get_separators(content):
     else:
         logger.debug("after_comma: %s", after_comma)
         logger.debug("after_decimal: %s", after_decimal)
-        raise ValueError("Invalid number format for `{}`.".format(content))
+        raise ValueError(f"Invalid number format for `{content}`.")
 
     return {"thousand_sep": thousand_sep, "decimal_sep": decimal_sep}
 
@@ -858,7 +858,7 @@ def _fuzzy_match(needle, haystack, **kwargs):
 
 
 def _exact_match(*args, **kwargs):
-    sets = (set(i.lower() for i in arg) for arg in args)
+    sets = ({i.lower() for i in arg} for arg in args)
     return iter(reduce(lambda x, y: x.intersection(y), sets))
 
 
@@ -1092,10 +1092,9 @@ def flatten(record, prefix=None):
     """
     try:
         for key, value in record.items():
-            newkey = "{}_{}".format(prefix, key) if prefix else key
+            newkey = f"{prefix}_{key}" if prefix else key
 
-            for flattened in flatten(value, newkey):
-                yield flattened
+            yield from flatten(value, newkey)
     except AttributeError:
         yield (prefix, record)
 
@@ -1126,12 +1125,11 @@ def remove_keys(record, *args, whitelist=False):
     """
     args = set(args)
 
-    if whitelist:
-        removed = {k: v for k, v in record.items() if k in args}
-    else:
-        removed = {k: v for k, v in record.items() if k not in args}
-
-    return removed
+    return (
+        {k: v for k, v in record.items() if k in args}
+        if whitelist
+        else {k: v for k, v in record.items() if k not in args}
+    )
 
 
 def listize(item):

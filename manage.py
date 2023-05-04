@@ -95,13 +95,14 @@ def require():
 @manager.command
 def test(where=None, stop=None, **kwargs):
     """Run nose, tox, and script tests"""
-    opts = "-xv" if stop else "-v"
-    opts += " --with-coverage" if kwargs.get("cover") else ""
+    opts = ("-xv" if stop else "-v") + (
+        " --with-coverage" if kwargs.get("cover") else ""
+    )
     opts += " --failed" if kwargs.get("failed") else " --with-id"
     opts += " --processes=-1" if kwargs.get("parallel") else ""
     opts += " --detailed-errors" if kwargs.get("verbose") else ""
     opts += " --debug=nose.loader" if kwargs.get("debug") else ""
-    opts += " -w %s" % where if where else ""
+    opts += f" -w {where}" if where else ""
 
     try:
         if kwargs.get("tox"):
@@ -109,7 +110,7 @@ def test(where=None, stop=None, **kwargs):
         elif kwargs.get("detox"):
             check_call("detox")
         else:
-            check_call(("nosetests %s" % opts).split(" "))
+            check_call(f"nosetests {opts}".split(" "))
     except CalledProcessError as e:
         exit(e.returncode)
 

@@ -100,8 +100,10 @@ class TestIterStringIO:
             ft.get_separators("spam")
 
     def test_fill(self):
-        content = "column_a,column_b,column_c\n"
-        content += "1,27,,too long!\n,too short!\n0,mixed types.uh oh,17"
+        content = (
+            "column_a,column_b,column_c\n"
+            + "1,27,,too long!\n,too short!\n0,mixed types.uh oh,17"
+        )
         f = StringIO(content)
         records = io.read_csv(f)
         previous = {}

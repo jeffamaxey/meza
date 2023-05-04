@@ -36,9 +36,9 @@ def setup_module():
 
 
 class TestReader:
-    def func(filepath):
+    def func(self):
         reader = lambda f, **kw: (x.strip().split(",") for x in f)
-        next(io.read_any(filepath, reader, "rU"))
+        next(io.read_any(self, reader, "rU"))
 
 
 class TestIterStringIO:
@@ -397,7 +397,7 @@ class TestUrlopen:
         """Test for reading utf-8 files"""
         filepath = p.join(io.DATA_DIR, "utf8.csv")
 
-        with closing(urlopen("file://{}".format(filepath))) as response:
+        with closing(urlopen(f"file://{filepath}")) as response:
             f = response.fp
             records = io.read_csv(f)
             row = next(it.islice(records, 1, 2))
@@ -407,7 +407,7 @@ class TestUrlopen:
         """Test for reading latin-1 files"""
         filepath = p.join(io.DATA_DIR, "latin1.csv")
 
-        with closing(urlopen("file://{}".format(filepath))) as response:
+        with closing(urlopen(f"file://{filepath}")) as response:
             f = response.fp
             records = io.read_csv(f, encoding="latin-1")
             row = next(it.islice(records, 1, 2))

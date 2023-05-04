@@ -69,9 +69,7 @@ def ctype2ext(content_type=None):
         ctype = None
 
     xlsx_type = "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    switch = {"xls": "xls", "csv": "csv"}
-    switch[xlsx_type] = "xlsx"
-
+    switch = {"xls": "xls", "csv": "csv", xlsx_type: "xlsx"}
     if ctype not in switch:
         msg = "Content-Type %s not found in dictionary. Using default value."
         logger.warning(msg, ctype)
@@ -151,7 +149,7 @@ def to_bool(content, trues=None, falses=None, warn=False, **kwargs):
         except (TypeError, AttributeError):
             value = bool(content)
     elif warn:
-        raise ValueError("Invalid bool value: `{}`.".format(content))
+        raise ValueError(f"Invalid bool value: `{content}`.")
     else:
         value = False
 
@@ -196,13 +194,13 @@ def to_int(content, thousand_sep=",", decimal_sep=".", warn=False, **kwargs):
         int
     """
     if warn and not ft.is_int(content):
-        raise ValueError("Invalid int value: `{}`.".format(content))
+        raise ValueError(f"Invalid int value: `{content}`.")
 
     try:
         value = int(float(ft.strip(content, thousand_sep, decimal_sep)))
     except ValueError:
         if warn:
-            raise ValueError("Invalid int value: `{}`.".format(content))
+            raise ValueError(f"Invalid int value: `{content}`.")
         else:
             value = 0
 
@@ -246,7 +244,7 @@ def to_float(content, thousand_sep=",", decimal_sep=".", warn=False, **kwargs):
     if ft.is_numeric(content):
         value = float(ft.strip(content, thousand_sep, decimal_sep))
     elif warn:
-        raise ValueError("Invalid float value: `{}`.".format(content))
+        raise ValueError(f"Invalid float value: `{content}`.")
     else:
         value = 0.0
 
@@ -303,14 +301,14 @@ def to_decimal(content, thousand_sep=",", decimal_sep=".", **kwargs):
     if ft.is_numeric(content):
         decimalized = Decimal(ft.strip(content, thousand_sep, decimal_sep))
     elif kwargs.get("warn"):
-        raise ValueError("Invalid numeric value: `{}`.".format(content))
+        raise ValueError(f"Invalid numeric value: `{content}`.")
     else:
         decimalized = Decimal(0)
 
     roundup = kwargs.get("roundup", True)
     rounding = ROUND_HALF_UP if roundup else ROUND_HALF_DOWN
     places = int(kwargs.get("places", 2))
-    precision = ".{}1".format("".join(it.repeat("0", places - 1)))
+    precision = f'.{"".join(it.repeat("0", places - 1))}1'
     return decimalized.quantize(Decimal(precision), rounding=rounding)
 
 
@@ -430,7 +428,7 @@ def to_datetime(content, dt_format=None, warn=False, **kwargs):
         value = NULL_DATETIME
 
     if warn and value == NULL_DATETIME:
-        raise ValueError("Invalid datetime value: `{}`.".format(content))
+        raise ValueError(f"Invalid datetime value: `{content}`.")
     else:
         datetime = value.strftime(dt_format) if dt_format else value
 
@@ -548,11 +546,12 @@ def to_filepath(filepath, **kwargs):
     elif isdir or name_from_id:
         filename = resource_id
 
-    if isdir and filename.startswith("export?format="):
-        filename = "{}.{}".format(resource_id, filename.split("=")[1])
-    elif isdir and "." not in filename:
-        ctype = headers.get("content-type")
-        filename = "{}.{}".format(filename, ctype2ext(ctype))
+    if isdir:
+        if filename.startswith("export?format="):
+            filename = f'{resource_id}.{filename.split("=")[1]}'
+        elif "." not in filename:
+            ctype = headers.get("content-type")
+            filename = f"{filename}.{ctype2ext(ctype)}"
 
     return p.join(filepath, filename) if isdir else filepath
 
@@ -710,7 +709,7 @@ def records2array(records, types, native=False, silent=False):
         data = [tuple(r.get(id_) for id_ in ids) for r in records]
         ndtype = [tuple(z) for z in zip(ids, dtype)]
         ndarray = np.array(data, dtype=ndtype)
-        converted = ndarray.view(np.recarray)
+        return ndarray.view(np.recarray)
     else:
         if not (native or silent):
             msg = (
@@ -732,9 +731,7 @@ def records2array(records, types, native=False, silent=False):
             for d, c in zip(dtype, cleaned)
         ]
 
-        converted = [header] + values
-
-    return converted
+        return [header] + values
 
 
 def records2df(records, types, native=False, silent=False):
@@ -790,7 +787,7 @@ def records2df(records, types, native=False, silent=False):
     """
     if pd and not native:
         recarray = records2array(records, types)
-        df = pd.DataFrame.from_records(recarray)
+        return pd.DataFrame.from_records(recarray)
     else:
         if not (native or silent):
             msg = (
@@ -800,9 +797,7 @@ def records2df(records, types, native=False, silent=False):
 
             logger.warning(msg)
 
-        df = records2array(records, types, native=True, silent=silent)
-
-    return df
+        return records2array(records, types, native=True, silent=silent)
 
 
 def records2csv(records, encoding=ENCODING, bom=False, skip_header=False):
@@ -993,7 +988,7 @@ def gen_subresults(records, kw):
             polygon = [[(r[kw.lon], r[kw.lat]) for r in g[1]] for g in groups]
             yield (polygon, first_row)
         else:
-            raise TypeError("Invalid type: {}".format(_type))
+            raise TypeError(f"Invalid type: {_type}")
 
 
 def records2geojson(records, **kwargs):
@@ -1097,4 +1092,4 @@ def records2geojson(records, **kwargs):
 
     dkwargs = ft.dfilter(kwargs, ["indent", "sort_keys"], True)
     json = dumps(output, cls=ft.CustomEncoder, **dkwargs)
-    return StringIO(str(json))
+    return StringIO(json)

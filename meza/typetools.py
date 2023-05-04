@@ -76,9 +76,7 @@ def guess_type_by_field(content):
 
     for item in content:
         for g in guess_funcs:
-            result = type_test(g["func"], g["type"], item, item)
-
-            if result:
+            if result := type_test(g["func"], g["type"], item, item):
                 yield result
                 break
 
@@ -163,13 +161,11 @@ def guess_type_by_value(record, blanks_as_nulls=True, strip_zeros=False):
 
     for key, value in record.items():
         for g in guess_funcs:
-            result = type_test(g["func"], g["type"], key, value)
-
-            if result:
+            if result := type_test(g["func"], g["type"], key, value):
                 yield result
                 break
         else:
-            raise TypeError("Couldn't guess type of '{}'".format(value))
+            raise TypeError(f"Couldn't guess type of '{value}'")
 
 
 def is_date(content):
@@ -252,7 +248,7 @@ def is_time(content):
             except AttributeError:
                 has_time = False
 
-    return bool(has_time)
+    return has_time
 
 
 def is_datetime(content):

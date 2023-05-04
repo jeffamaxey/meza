@@ -173,7 +173,7 @@ class IterStringIO(TextIOBase):
             pos = num - self.pos
             [self.last.append(x) for x in it.islice(self.iter, 0, pos)]
 
-        self.pos = beg_buf if num < beg_buf else num
+        self.pos = max(num, beg_buf)
 
     def tell(self):
         """Get the current position within a file"""
@@ -254,11 +254,7 @@ class Reencoder(StreamReader):
             # chars
             groups = groupby_line(next(stream))
 
-            if self.binary:
-                self.join_char = os.linesep.encode(fromenc)
-            else:
-                self.join_char = os.linesep
-
+            self.join_char = os.linesep.encode(fromenc) if self.binary else os.linesep
             self.stream = (self.join_char.join(g) for k, g in groups if k)
 
     def __next__(self):
@@ -346,12 +342,11 @@ def _remove_bom_from_scalar(row, bom):
 
 def is_listlike(item):
     """Determine if a scalar is listlike"""
-    if hasattr(item, "keys"):
-        listlike = False
-    else:
-        listlike = {"append", "next", "__reversed__"}.intersection(dir(item))
-
-    return listlike
+    return (
+        False
+        if hasattr(item, "keys")
+        else {"append", "next", "__reversed__"}.intersection(dir(item))
+    )
 
 
 def remove_bom(row, bom):
@@ -387,7 +382,7 @@ def get_file_encoding(f, encoding=None, bytes_error=False):
 
     if not bytes_error:
         # Set the encoding to None so that we can detect the correct one.
-        extra = (" ({})".format(encoding)) if encoding else ""
+        extra = f" ({encoding})" if encoding else ""
         logger.warning("%s was opened with the wrong encoding%s", f, extra)
         encoding = None
 
@@ -401,8 +396,7 @@ def get_file_encoding(f, encoding=None, bytes_error=False):
                 # See if we have bytes to avoid reopening the file
                 encoding = detect_encoding(f)["encoding"]
             except UnicodeDecodeError:
-                msg = "Incorrectly encoded file, reopening with bytes to detect"
-                msg += " encoding"
+                msg = "Incorrectly encoded file, reopening with bytes to detect" + " encoding"
                 logger.warning(msg)
                 f.close()
                 encoding = get_encoding(f.name)
@@ -422,8 +416,10 @@ def sanitize_file_encoding(encoding):
         # 'Windows-1252', you have to open with 'mac-roman' in order
         # to properly read it
         new_encoding = "mac-roman"
-        msg = "Detected a `Windows-1252` encoded file on a %s machine."
-        msg += " Setting encoding to `%s` instead."
+        msg = (
+            "Detected a `Windows-1252` encoded file on a %s machine."
+            + " Setting encoding to `%s` instead."
+        )
         logger.warning(msg, sys.platform, new_encoding)
     else:
         new_encoding = encoding
@@ -457,9 +453,7 @@ def _read_any(f, reader, args, pos=0, recursed=False, **kwargs):
     """Helper func to read a file or filepath"""
     try:
         if is_binary(f) and reader.__name__ != "writer":
-            # only allow binary mode for writing files, not reading
-            message = "%s was opened in bytes mode but isn't being written to"
-            raise BytesError(message % f)
+            raise BytesError(f"{f} was opened in bytes mode but isn't being written to")
 
         for num, line in enumerate(reader(f, *args, **kwargs)):
             if num >= pos:
@@ -468,9 +462,9 @@ def _read_any(f, reader, args, pos=0, recursed=False, **kwargs):
     except (UnicodeDecodeError, csvError, BytesError) as err:
         logger.warning(err)
         encoding = kwargs.pop("encoding", None)
-        bytes_error = type(err).__name__ == "BytesError"
-
         if not recursed:
+            bytes_error = type(err).__name__ == "BytesError"
+
             ekwargs = {"encoding": encoding, "bytes_error": bytes_error}
             encoding = get_file_encoding(f, **ekwargs)
 
@@ -483,8 +477,7 @@ def _read_any(f, reader, args, pos=0, recursed=False, **kwargs):
         try:
             rkwargs = pr.merge([kwargs, {"pos": pos, "recursed": True}])
 
-            for line in _read_any(decoded_f, reader, args, **rkwargs):
-                yield line
+            yield from _read_any(decoded_f, reader, args, **rkwargs)
         finally:
             decoded_f.close()
 
@@ -637,7 +630,7 @@ def read_mdb(filepath, table=None, **kwargs):
         yield
         return
     except CalledProcessError:
-        raise TypeError("{} is not readable by mdbtools".format(filepath))
+        raise TypeError(f"{filepath} is not readable by mdbtools")
 
     sanitize = kwargs.pop("sanitize", None)
     dedupe = kwargs.pop("dedupe", False)
@@ -743,7 +736,7 @@ def read_sqlite(filepath, table=None):
     if not table or table not in set(cursor.fetchall()):
         table = cursor.fetchone()[0]
 
-    cursor.execute("SELECT * FROM {}".format(table))
+    cursor.execute(f"SELECT * FROM {table}")
     return map(dict, cursor)
 
 
@@ -1136,12 +1129,7 @@ def read_json(filepath, mode="r", path="item", newline=False):
 
 def get_point(coords, lat_first):
     """Converts GeoJSON coordinates into a point tuple"""
-    if lat_first:
-        point = (coords[1], coords[0])
-    else:
-        point = (coords[0], coords[1])
-
-    return point
+    return (coords[1], coords[0]) if lat_first else (coords[0], coords[1])
 
 
 def gen_records(_type, record, coords, properties, **kwargs):
@@ -1162,7 +1150,7 @@ def gen_records(_type, record, coords, properties, **kwargs):
                 record["pos"] = pos
                 yield pr.merge([record, properties])
     else:
-        raise TypeError("Invalid geometry type {}.".format(_type))
+        raise TypeError(f"Invalid geometry type {_type}.")
 
 
 def read_geojson(filepath, key="id", mode="r", **kwargs):
@@ -1223,8 +1211,7 @@ def read_geojson(filepath, key="id", mode="r", **kwargs):
 
                 args = (record, coords, properties)
 
-                for rec in gen_records(_type, *args, **kwargs):
-                    yield rec
+                yield from gen_records(_type, *args, **kwargs)
 
     return read_any(filepath, reader, mode, **kwargs)
 
@@ -1266,11 +1253,7 @@ def read_yaml(filepath, mode="r", **kwargs):
 
 
 def get_text(element):
-    if element and element.text:
-        text = element.text.strip()
-    else:
-        text = ""
-
+    text = element.text.strip() if element and element.text else ""
     if not text and element and element.string:
         text = element.string.strip()
 
